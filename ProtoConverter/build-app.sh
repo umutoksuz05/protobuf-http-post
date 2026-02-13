@@ -24,6 +24,12 @@ mkdir -p "$RESOURCES_DIR"
 # Copy executable
 cp ".build/release/$APP_NAME" "$MACOS_DIR/"
 
+# Copy app icon
+if [ -f "AppIcon.icns" ]; then
+    cp "AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
+    echo "App icon copied."
+fi
+
 # Create Info.plist
 cat > "$CONTENTS_DIR/Info.plist" << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -48,6 +54,8 @@ cat > "$CONTENTS_DIR/Info.plist" << 'EOF'
     <string>1</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSPrincipalClass</key>
