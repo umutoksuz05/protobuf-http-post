@@ -1,0 +1,37 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+DerivedData/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+Packages/
+
+# App bundle build artifacts
+*.app
+*.app.dSYM/
+
+# IDE
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Cursor
+.cursor/
+
+# Environment / secrets
+.env
+.env.*
