@@ -141,6 +141,14 @@ class ConversionService {
         return nil
     }
     
+    /// Encode a JSON string directly to binary proto Data (no base64 intermediate)
+    func encodeJsonToProtoBinary(json: String, messageType: MessageTypeInfo, allMessageTypes: [MessageTypeInfo]? = nil) throws -> Data {
+        let typesToUse = allMessageTypes ?? allKnownTypes
+        let fields = try parseJson(json)
+        let allDescriptors = buildAllDescriptors(messageType: messageType, allMessageTypes: typesToUse)
+        return try encodeBinaryProto(fields, descriptor: messageType.descriptor, allDescriptors: allDescriptors)
+    }
+
     /// Convert input data from one format to another
     func convert(
         input: String,

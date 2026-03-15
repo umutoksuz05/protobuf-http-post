@@ -12,6 +12,12 @@ enum BodyFormat: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum BodyEditorMode: String, CaseIterable, Identifiable {
+    case proto = "Proto"
+    case json = "JSON"
+    var id: String { rawValue }
+}
+
 enum ScriptTab: String, CaseIterable, Identifiable {
     case preRequest = "Pre-Request"
     case postResponse = "Post-Response"
@@ -59,6 +65,7 @@ struct HttpRequestView: View {
     @State private var selectedScriptTab: ScriptTab = .preRequest
     @State private var showScriptingGuide = false
     @State private var selectedHeadersSubTab: HeadersSubTab = .headers
+    @State private var bodyEditorMode: BodyEditorMode = .json
     
     private let conversionService = ConversionService()
     private let scriptingService = ScriptingService()
@@ -115,6 +122,9 @@ struct HttpRequestView: View {
         if let saved = tabState.savedRequest {
             saveRequestName = saved.name
             selectedGroupId = saved.groupId
+        }
+        if requestFormat == .protobuf {
+            bodyEditorMode = .proto
         }
     }
     
@@ -225,6 +235,9 @@ struct HttpRequestView: View {
                         set: { newFormat in
                             tabState.requestFormat = newFormat == .protobuf ? "protobuf" : "json"
                             tabState.markAsChanged()
+                            withAnimation(Theme.smooth) {
+                                bodyEditorMode = newFormat == .protobuf ? .proto : .json
+                            }
                         }
                     )) {
                         ForEach(BodyFormat.allCases) { format in
@@ -269,6 +282,23 @@ struct HttpRequestView: View {
                 HStack {
                     Text("Body")
                         .font(.system(size: 12, weight: .medium))
+                    
+                    if requestFormat == .protobuf {
+                        Picker("", selection: Binding(
+                            get: { bodyEditorMode },
+                            set: { newMode in
+                                withAnimation(Theme.smooth) {
+                                    bodyEditorMode = newMode
+                                }
+                            }
+                        )) {
+                            ForEach(BodyEditorMode.allCases) { mode in
+                                Text(mode.rawValue).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 120)
+                    }
                     
                     Spacer()
                     
@@ -315,6 +345,19 @@ struct HttpRequestView: View {
                 if showScripts {
                     scriptingPanel
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
+                } else if bodyEditorMode == .proto && requestFormat == .protobuf,
+                          let typeName = tabState.selectedRequestTypeName,
+                          let selectedMessageType = appState.messageTypes.first(where: { $0.fullName == typeName }) {
+                    ProtoFieldsEditor(
+                        messageType: selectedMessageType,
+                        allMessageTypes: appState.messageTypes,
+                        jsonText: Binding(
+                            get: { tabState.requestBody },
+                            set: { tabState.requestBody = $0 }
+                        ),
+                        onChanged: { tabState.markAsChanged() }
+                    )
+                    .transition(.opacity)
                 } else {
                     SmartJsonEditor(
                         text: Binding(
@@ -333,6 +376,7 @@ struct HttpRequestView: View {
         .background(Theme.surface.opacity(0.3))
         .animation(Theme.smooth, value: requestFormat == .protobuf)
         .animation(Theme.smooth, value: showScripts)
+        .animation(Theme.smooth, value: bodyEditorMode)
     }
     
     private var hasAnyScript: Bool {
@@ -986,19 +1030,13 @@ struct HttpRequestView: View {
                     throw RequestError.noMessageTypeSelected("request")
                 }
                 
-                let binaryData = try conversionService.convert(
-                    input: resolvedBody,
-                    from: .json,
-                    to: .binaryBase64,
+                let binaryData = try conversionService.encodeJsonToProtoBinary(
+                    json: resolvedBody,
                     messageType: messageType,
                     allMessageTypes: appState.messageTypes
                 )
                 
-                guard let data = Data(base64Encoded: binaryData) else {
-                    throw RequestError.invalidResponse
-                }
-                
-                request.httpBody = data
+                request.httpBody = binaryData
                 request.setValue("application/x-protobuf", forHTTPHeaderField: "Content-Type")
             } else {
                 request.httpBody = resolvedBody.data(using: .utf8)
